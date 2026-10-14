@@ -1,0 +1,37 @@
+# JQuick agent capability plugins.
+#
+# Every line names one JQuickPlugin implementation. The file has two audiences:
+#
+#   1. the built-in capabilities of this jar, listed so that the discovery path runs on every
+#      boot and cannot silently rot;
+#   2. a third-party capability, which is added by dropping its own jar (with its own services
+#      file) on the classpath - no change to this module is required.
+#
+# A provider MUST have a public no-argument constructor, because ServiceLoader creates it before
+# any configuration exists. Configuration is read in JQuickPlugin#initialize, from the installed
+# environment. A discovered name that collides with a built-in is ignored: a third-party jar must
+# never be able to replace the tracer.
+
+# --- observation -----------------------------------------------------------------
+io.github.paohaijiao.jquick.agent.plugin.trace.JQuickTracePlugin
+io.github.paohaijiao.jquick.agent.plugin.metrics.JQuickMetricsPlugin
+
+# --- integrations ----------------------------------------------------------------
+io.github.paohaijiao.jquick.agent.plugin.component.JQuickHttpPlugin
+io.github.paohaijiao.jquick.agent.plugin.jdbc.JQuickJdbcPlugin
+io.github.paohaijiao.jquick.agent.plugin.component.JQuickCachePlugin
+io.github.paohaijiao.jquick.agent.plugin.component.JQuickMqPlugin
+
+# --- cross-cutting ---------------------------------------------------------------
+io.github.paohaijiao.jquick.agent.plugin.log.JQuickLogPlugin
+io.github.paohaijiao.jquick.agent.plugin.security.JQuickSecurityPlugin
+io.github.paohaijiao.jquick.agent.plugin.governance.JQuickGovernancePlugin
+io.github.paohaijiao.jquick.agent.plugin.audit.JQuickAuditPlugin
+io.github.paohaijiao.jquick.agent.plugin.crypto.JQuickCryptoPlugin
+io.github.paohaijiao.jquick.agent.plugin.mask.JQuickMaskPlugin
+
+# --- developer tooling -----------------------------------------------------------
+io.github.paohaijiao.jquick.agent.plugin.mock.JQuickMockPlugin
+io.github.paohaijiao.jquick.agent.plugin.thread.JQuickThreadPlugin
+io.github.paohaijiao.jquick.agent.plugin.coverage.JQuickCoveragePlugin
+io.github.paohaijiao.jquick.agent.plugin.classload.JQuickClassLoadPlugin
