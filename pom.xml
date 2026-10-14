@@ -17,29 +17,32 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <maven.compiler.source>1.8</maven.compiler.source>
         <maven.compiler.target>1.8</maven.compiler.target>
+        <jquick-asm.version>1.3.0</jquick-asm.version>
         <junit.version>4.13.2</junit.version>
-        <javassist.version>3.30.2-GA</javassist.version>
+        <shade.plugin.version>3.5.1</shade.plugin.version>
+        <jar.plugin.version>3.4.1</jar.plugin.version>
+        <surefire.plugin.version>3.2.5</surefire.plugin.version>
     </properties>
 
     <dependencies>
+        <!-- The single bytecode foundation: all instrumentation is delegated to jquick-asm. -->
         <dependency>
-            <groupId>org.javassist</groupId>
-            <artifactId>javassist</artifactId>
-            <version>${javassist.version}</version>
+            <groupId>io.github.paohaijiao</groupId>
+            <artifactId>jquick-asm</artifactId>
+            <version>${jquick-asm.version}</version>
         </dependency>
+
         <dependency>
             <groupId>junit</groupId>
             <artifactId>junit</artifactId>
             <version>${junit.version}</version>
             <scope>test</scope>
         </dependency>
-        <dependency>
-            <groupId>junit</groupId>
-            <artifactId>junit</artifactId>
-            <scope>test</scope>
-        </dependency>
     </dependencies>
-    <description>jquick-agent</description>
+
+    <description>jquick-agent is a lightweight Java Agent framework (premain / agentmain) built on top of jquick-asm,
+        providing zero-intrusion, declarative bytecode enhancement capabilities for JVM applications.
+    </description>
     <url>https://github.com/paohaijiao/jquick-agent</url>
     <licenses>
         <license>
@@ -58,62 +61,106 @@
     <scm>
         <url>https://github.com/paohaijiao/jquick-agent</url>
     </scm>
+
     <build>
         <plugins>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-gpg-plugin</artifactId>
-                <configuration>
-                </configuration>
-                <executions>
-                    <execution>
-                        <id>sign-artifacts</id>
-                        <phase>verify</phase>
-                        <goals>
-                            <goal>sign</goal>
-                        </goals>
-                    </execution>
-                </executions>
-            </plugin>
-
-            <plugin>
-                <groupId>org.sonatype.central</groupId>
-                <artifactId>central-publishing-maven-plugin</artifactId>
-                <version>0.8.0</version>
-                <extensions>true</extensions>
-                <configuration>
-                    <publishingServerId>ossrh</publishingServerId>
-                    <autoPublish>true</autoPublish>
-                    <waitUntil>published</waitUntil>
-                </configuration>
-            </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
                 <version>3.8.1</version>
                 <configuration>
+                    <encoding>UTF-8</encoding>
+                    <source>1.8</source>
+                    <target>1.8</target>
                     <compilerArgs>
                         <arg>-Xlint:none</arg>
                     </compilerArgs>
-                    <failOnError>false</failOnError>
-                    <encoding>UTF-8</encoding>
                 </configuration>
             </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>${surefire.plugin.version}</version>
+                <configuration>
+                    <argLine>-Djquick.agent.test=true</argLine>
+                </configuration>
+            </plugin>
+
+            <!-- Agent manifest: enables both -javaagent (premain) and dynamic attach (agentmain). -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-jar-plugin</artifactId>
-                <version>3.3.0</version>
+                <version>${jar.plugin.version}</version>
                 <configuration>
                     <archive>
                         <manifestEntries>
-                            <Premain-Class>io.github.paohaijiao.jquick.agent.agent.JQuickAgent</Premain-Class>
-                            <Agent-Class>io.github.paohaijiao.jquick.agent.agent.JQuickAgent</Agent-Class>
+                            <Premain-Class>io.github.paohaijiao.jquick.agent.bootstrap.JQuickAgent</Premain-Class>
+                            <Agent-Class>io.github.paohaijiao.jquick.agent.bootstrap.JQuickAgent</Agent-Class>
                             <Can-Redefine-Classes>true</Can-Redefine-Classes>
                             <Can-Retransform-Classes>true</Can-Retransform-Classes>
+                            <Can-Set-Native-Method-Prefix>true</Can-Set-Native-Method-Prefix>
+                            <Implementation-Title>jquick-agent</Implementation-Title>
+                            <Implementation-Version>${project.version}</Implementation-Version>
                         </manifestEntries>
                     </archive>
                 </configuration>
             </plugin>
+
+            <!--
+              Shade the agent into a self-contained jar so that "-javaagent:jquick-agent-1.0.0.jar"
+              works out of the box (jquick-asm + asm are bundled).
+            -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-shade-plugin</artifactId>
+                <version>${shade.plugin.version}</version>
+                <configuration>
+                    <createDependencyReducedPom>false</createDependencyReducedPom>
+                    <shadedArtifactAttached>false</shadedArtifactAttached>
+                    <filters>
+                        <filter>
+                            <artifact>*:*</artifact>
+                            <excludes>
+                                <exclude>META-INF/*.SF</exclude>
+                                <exclude>META-INF/*.DSA</exclude>
+                                <exclude>META-INF/*.RSA</exclude>
+                                <exclude>module-info.class</exclude>
+                            </excludes>
+                        </filter>
+                    </filters>
+                    <transformers>
+                        <transformer
+                                implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
+                            <manifestEntries>
+                                <Premain-Class>io.github.paohaijiao.jquick.agent.bootstrap.JQuickAgent</Premain-Class>
+                                <Agent-Class>io.github.paohaijiao.jquick.agent.bootstrap.JQuickAgent</Agent-Class>
+                                <Can-Redefine-Classes>true</Can-Redefine-Classes>
+                                <Can-Retransform-Classes>true</Can-Retransform-Classes>
+                                <Can-Set-Native-Method-Prefix>true</Can-Set-Native-Method-Prefix>
+                                <Implementation-Title>jquick-agent</Implementation-Title>
+                                <Implementation-Version>${project.version}</Implementation-Version>
+                            </manifestEntries>
+                        </transformer>
+                        <!--
+                          Merges /META-INF/services so that jquick-asm (or any future dependency) can
+                          contribute its own providers without one file overwriting the other.
+                        -->
+                        <transformer
+                                implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
+                    </transformers>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>shade-agent</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>shade</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-source-plugin</artifactId>
@@ -127,6 +174,7 @@
                     </execution>
                 </executions>
             </plugin>
+
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-javadoc-plugin</artifactId>
